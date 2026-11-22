@@ -37,9 +37,32 @@
     <nav class="toc" aria-label="Contents">
       <p class="toc-title">Contents</p>
       <ol>
-        <li><a href="#vectorized-envs">Vectorized environments: <code>next_obs</code> and <code>next_done</code></a></li>
+        <li class="unnum"><a href="#terminology">Terminology</a></li>
+        <li value="1"><a href="#vectorized-envs">Vectorized environments: <code>next_obs</code> and <code>next_done</code></a></li>
       </ol>
     </nav>
+
+    <section id="terminology" class="section">
+      <h2>Terminology</h2>
+      <dl class="terms">
+        <div class="term">
+          <dt><span class="sym">N</span><code>num_envs</code></dt>
+          <dd>
+            PPO sets up a vectorized environment that runs N (usually independent) environments, either one after
+            another or in parallel
+            (<a href="https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/">source</a>).
+            These are the rows in the grid below (env 0, env 1, env 2).
+          </dd>
+        </div>
+        <div class="term">
+          <dt><span class="sym">M</span><code>num_steps</code></dt>
+          <dd>
+            Called <code>nsteps</code> in the original code. The agent steps the N environments for a fixed M steps
+            per rollout. This is the length of one segment: the width of one phase block in the grid.
+          </dd>
+        </div>
+      </dl>
+    </section>
 
     <article id="vectorized-envs" class="section">
       <h2><span class="num">1</span> Vectorized environments</h2>

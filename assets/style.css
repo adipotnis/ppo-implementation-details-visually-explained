@@ -115,6 +115,7 @@ h1 {
   margin: 0 0 6px;
 }
 .toc ol { margin: 0; padding-left: 20px; }
+.toc li.unnum { list-style: none; margin-left: -20px; }
 .toc a { color: var(--text); text-decoration: none; border-bottom: 1px solid var(--border); }
 .toc a:hover { border-color: var(--accent); }
 
@@ -141,6 +142,30 @@ h2 .num {
   place-items: center;
   transform: translateY(-4px);
 }
+/* Terminology */
+.terms { margin: 8px 0 0; }
+.term {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 4px 20px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+.term:last-child { border-bottom: 1px solid var(--border); }
+.term dt { display: flex; align-items: center; gap: 10px; align-self: start; padding-top: 2px; }
+.term dd { margin: 0; }
+.sym {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--accent);
+  min-width: 18px;
+}
+@media (max-width: 560px) {
+  .term { grid-template-columns: 1fr; }
+}
+
 h3 {
   font-family: var(--sans);
   font-size: 17px;
