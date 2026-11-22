@@ -7,8 +7,6 @@
   --border: rgba(28, 27, 25, 0.12);
   --accent: #b5532c;
   --danger: #b3261e;
-  --code-bg: #f2f0ea;
-  --comment: #8a877f;
   --serif: Charter, "Bitstream Charter", "Iowan Old Style", Georgia, "Times New Roman", serif;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -25,8 +23,6 @@
     --border: rgba(236, 235, 230, 0.14);
     --accent: #e8845c;
     --danger: #f2948c;
-    --code-bg: #1c1b19;
-    --comment: #85827a;
   }
 }
 
@@ -246,29 +242,6 @@ h3 {
   margin: 0 0 4px;
 }
 .takeaway p:last-child { margin: 0; }
-
-/* Code */
-details.code {
-  margin: 24px 0;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--code-bg);
-}
-details.code summary {
-  cursor: pointer;
-  font-family: var(--sans);
-  font-size: 14px;
-  padding: 12px 14px;
-}
-details.code pre {
-  margin: 0;
-  padding: 0 14px 14px;
-  overflow-x: auto;
-  font-size: 13px;
-  line-height: 1.55;
-}
-details.code pre code { background: none; padding: 0; font-size: inherit; }
-.c { color: var(--comment); }
 
 /* Footer */
 .site-footer {

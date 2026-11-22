@@ -117,32 +117,6 @@
         </p>
       </aside>
 
-      <details class="code">
-        <summary>Where this lives in the code (CleanRL <code>ppo.py</code>, simplified)</summary>
-<pre><code><span class="c"># carried across rollout phases, never reset between them</span>
-next_obs  = envs.reset()
-next_done = torch.zeros(num_envs)
-
-for update in range(num_updates):
-    for step in range(num_steps):                 <span class="c"># M steps per phase</span>
-        obs[step]   = next_obs                    <span class="c"># data[0] = last phase's next_obs</span>
-        dones[step] = next_done
-        action, logprob, _, value = agent.get_action_and_value(next_obs)
-        next_obs, reward, next_done, info = envs.step(action)
-
-    <span class="c"># learning: bootstrap from next_obs, masked by next_done</span>
-    next_value = agent.get_value(next_obs)
-    lastgaelam = 0
-    for t in reversed(range(num_steps)):
-        if t == num_steps - 1:
-            nextnonterminal = 1.0 - next_done         <span class="c"># edge of the segment</span>
-            nextvalues      = next_value
-        else:
-            nextnonterminal = 1.0 - dones[t + 1]      <span class="c"># episode ended mid-phase</span>
-            nextvalues      = values[t + 1]
-        delta = rewards[t] + gamma * nextvalues * nextnonterminal - values[t]
-        advantages[t] = lastgaelam = delta + gamma * gae_lambda * nextnonterminal * lastgaelam</code></pre>
-      </details>
     </article>
   </main>
 
