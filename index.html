@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PPO Implementation Details, Visually Explained</title>
+  <meta name="description" content="A small visual explainer of the PPO implementation details from the ICLR 2022 blog track post, starting with vectorized environments, next_obs and next_done.">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <p class="kicker">A visual explainer</p>
+      <h1>PPO Implementation Details, Visually Explained</h1>
+      <p class="wip"><span class="wip-dot" aria-hidden="true"></span>Work in progress: more sections are on the way.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="intro" class="intro">
+      <p>
+        I wrote up some of the implementation details mentioned in
+        <a href="https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/">The 37 Implementation Details of Proximal Policy Optimization</a>
+        (ICLR Blog Track, 2022).
+      </p>
+      <p>
+        I found these tricky to learn, and learning them visually helps me, so I decided to turn them into a small
+        visual explainer, with the help of an agent to make some nice illustrations. The content is based on the ICLR
+        blog. This is mainly a way for those of us who need the visual treatment to understand it better.
+      </p>
+    </section>
+
+    <nav class="toc" aria-label="Contents">
+      <p class="toc-title">Contents</p>
+      <ol>
+        <li><a href="#vectorized-envs">Vectorized environments: <code>next_obs</code> and <code>next_done</code></a></li>
+      </ol>
+    </nav>
+
+    <article id="vectorized-envs" class="section">
+      <h2><span class="num">1</span> Vectorized environments</h2>
+
+      <p class="lede">
+        The key point: <strong>the rollout boundary and the episode boundary are separate</strong>, and two variables,
+        <code>next_obs</code> and <code>next_done</code>, keep track of both.
+      </p>
+
+      <figure class="figure" id="rollout-figure">
+        <figcaption class="fig-head">
+          3 parallel environments, 4 rollout phases of M = 6 steps each. Step through the phases.
+        </figcaption>
+
+        <div class="grid-scroll" tabindex="0" aria-label="Rollout grid, scrolls sideways on small screens">
+          <div id="grid" class="grid"></div>
+        </div>
+
+        <div class="legend">
+          <span class="lg"><span class="sw" style="background:#1D9E75"></span><span class="sw" style="background:#D85A30"></span><span class="sw" style="background:#7F77DD"></span>one color = one episode</span>
+          <span class="lg"><span class="sw neutral done"></span><code>done = 1</code> (first obs of a new episode)</span>
+          <span class="lg"><span class="sw neutral nx"></span><code>next_obs</code> (bootstrap)</span>
+          <span class="lg"><span class="sw neutral init"></span>last phase's <code>next_obs</code>, now <code>data[0]</code></span>
+        </div>
+
+        <div class="controls">
+          <button id="prev" type="button" aria-label="Previous phase">&larr;</button>
+          <span id="ph" class="phase-label" aria-live="polite"></span>
+          <button id="next" type="button" aria-label="Next phase">&rarr;</button>
+        </div>
+
+        <div id="out" class="readout"></div>
+      </figure>
+
+      <h3>What to notice</h3>
+      <ul class="points">
+        <li>
+          <strong>Rollout boundaries are fixed.</strong> Every M steps, collection stops and learning starts, no matter
+          where any episode is. An episode (one color) can run straight through a boundary. Env 2 is one long episode
+          that never ends.
+        </li>
+        <li>
+          <strong><code>next_obs</code> connects the phases.</strong> At the end of phase j, the environments have
+          already been stepped once more. That extra observation (dashed box) has two jobs:
+          <ul>
+            <li><em>During learning</em>, it supplies the value at the end of the segment. Each env's return ends with
+              <code>V(next_obs)</code>, because the trajectory was cut off, not because it finished.</li>
+            <li><em>In the next rollout</em>, it becomes <code>data[0]</code> of phase j+1 (solid box). Nothing is
+              reset; stepping just continues.</li>
+          </ul>
+        </li>
+        <li>
+          <strong><code>next_done</code> says whether that observation is the same episode.</strong> The black bar marks
+          the first observation of a new episode.
+          <ul>
+            <li><em>After phase 2 (step 12)</em>, env 1 has <code>next_done = 1</code>: its <code>next_obs</code> belongs
+              to a new orange episode. Bootstrapping from it would leak the next episode's value into the old one's
+              return, so <code>(1 − next_done)</code> zeroes it.</li>
+            <li><em>After phase 3 (step 18)</em>, env 0 hits the same case. Env 2 always has
+              <code>next_done = 0</code> and always bootstraps.</li>
+          </ul>
+        </li>
+        <li>
+          <strong>The same mask cuts GAE inside a phase.</strong> Wherever an episode ends mid-phase,
+          <code>(1 − done)</code> stops the advantage from flowing across it: env 0 at step 9, env 1 at step 4.
+        </li>
+      </ul>
+
+      <aside class="takeaway">
+        <p class="takeaway-title">Put together</p>
+        <p>
+          The agent always learns from M-step segments, and <code>next_obs</code> / <code>next_done</code> handle the
+          edges. PPO never needs an episode to end before it can train, which is why it can handle a game whose single
+          episode lasts 100,000 steps: env 2, stretched out.
+        </p>
+      </aside>
+
+      <details class="code">
+        <summary>Where this lives in the code (CleanRL <code>ppo.py</code>, simplified)</summary>
+<pre><code><span class="c"># carried across rollout phases, never reset between them</span>
+next_obs  = envs.reset()
+next_done = torch.zeros(num_envs)
+
+for update in range(num_updates):
+    for step in range(num_steps):                 <span class="c"># M steps per phase</span>
+        obs[step]   = next_obs                    <span class="c"># data[0] = last phase's next_obs</span>
+        dones[step] = next_done
+        action, logprob, _, value = agent.get_action_and_value(next_obs)
+        next_obs, reward, next_done, info = envs.step(action)
+
+    <span class="c"># learning: bootstrap from next_obs, masked by next_done</span>
+    next_value = agent.get_value(next_obs)
+    lastgaelam = 0
+    for t in reversed(range(num_steps)):
+        if t == num_steps - 1:
+            nextnonterminal = 1.0 - next_done         <span class="c"># edge of the segment</span>
+            nextvalues      = next_value
+        else:
+            nextnonterminal = 1.0 - dones[t + 1]      <span class="c"># episode ended mid-phase</span>
+            nextvalues      = values[t + 1]
+        delta = rewards[t] + gamma * nextvalues * nextnonterminal - values[t]
+        advantages[t] = lastgaelam = delta + gamma * gae_lambda * nextnonterminal * lastgaelam</code></pre>
+      </details>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>
+        Based on <a href="https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/">The 37 Implementation
+        Details of Proximal Policy Optimization</a> by Huang et al., ICLR Blog Track 2022. Illustrations made with the
+        help of an AI agent.
+      </p>
+    </div>
+  </footer>
+
+  <script src="assets/rollout-phases.js"></script>
+</body>
+</html>
