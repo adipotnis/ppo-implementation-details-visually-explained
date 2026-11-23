@@ -39,6 +39,7 @@
       <ol>
         <li class="unnum"><a href="#terminology">Terminology</a></li>
         <li value="1"><a href="#vectorized-envs">Vectorized environments: <code>next_obs</code> and <code>next_done</code></a></li>
+        <li><a href="#orthogonal-init">Orthogonal initialization of weights, constant initialization of biases</a></li>
       </ol>
     </nav>
 
@@ -140,6 +141,14 @@
         </p>
       </aside>
 
+    </article>
+
+    <article id="orthogonal-init" class="section">
+      <h2><span class="num">2</span> Orthogonal initialization of weights, constant initialization of biases</h2>
+      <p>
+        In general, the weights of hidden layers use orthogonal initialization with scaling <code>np.sqrt(2)</code>,
+        and the biases are set to 0.
+      </p>
     </article>
   </main>
 

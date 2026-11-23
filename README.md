@@ -9,6 +9,7 @@ A small visual explainer of some of the implementation details from
 ## Sections
 
 1. Vectorized environments: how `next_obs` and `next_done` link rollout phases
+2. Orthogonal initialization of weights, constant initialization of biases
 
 ## Run locally
 
