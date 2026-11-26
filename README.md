@@ -10,6 +10,7 @@ A small visual explainer of some of the implementation details from
 
 1. Vectorized environments: how `next_obs` and `next_done` link rollout phases
 2. Orthogonal initialization of weights, constant initialization of biases
+5. Generalized Advantage Estimation (GAE), with an interactive walk through PPO's GAE loop
 
 ## Run locally
 
@@ -31,3 +32,4 @@ Push to GitHub, then in the repo go to **Settings → Pages**, set the source to
 - `index.html`: the blog post
 - `assets/style.css`: styles (light and dark mode)
 - `assets/rollout-phases.js`: the interactive rollout-phase grid for section 1
+- `assets/gae.js`: the interactive GAE table for section 5

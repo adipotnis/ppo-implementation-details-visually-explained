@@ -40,6 +40,7 @@
         <li class="unnum"><a href="#terminology">Terminology</a></li>
         <li value="1"><a href="#vectorized-envs">Vectorized environments: <code>next_obs</code> and <code>next_done</code></a></li>
         <li><a href="#orthogonal-init">Orthogonal initialization of weights, constant initialization of biases</a></li>
+        <li value="5"><a href="#gae">Generalized Advantage Estimation (GAE)</a></li>
       </ol>
     </nav>
 
@@ -150,6 +151,108 @@
         and the biases are set to 0.
       </p>
     </article>
+
+    <article id="gae" class="section">
+      <h2><span class="num">5</span> Generalized Advantage Estimation (GAE)</h2>
+
+      <p class="lede">
+        PPO uses <strong>GAE</strong> to estimate the advantage: how much better an action turned out than the value
+        function expected. Rather than trusting either a one-step guess or the full sum of rewards, GAE blends them
+        with a single knob, <var>λ</var>.
+      </p>
+
+      <p>It's built from one-step TD errors, the "surprise" at each step:</p>
+      <div class="eq">
+        <div><var>δ</var><sub>t</sub> = <var>r</var><sub>t</sub> + <var>γ</var>·<var>V</var>(<var>s</var><sub>t+1</sub>)·(1 − done<sub>t+1</sub>) − <var>V</var>(<var>s</var><sub>t</sub>)</div>
+      </div>
+      <p>The advantage is a decaying sum of the δ's that come after it, cut off where the episode ends:</p>
+      <div class="eq">
+        <div><var>A</var><sub>t</sub> = <var>δ</var><sub>t</sub> + (<var>γλ</var>)<var>δ</var><sub>t+1</sub> + (<var>γλ</var>)<sup>2</sup><var>δ</var><sub>t+2</sub> + …</div>
+        <div class="eq-alt">computed backward as &nbsp;<var>A</var><sub>t</sub> = <var>δ</var><sub>t</sub> + <var>γλ</var>·(1 − done<sub>t+1</sub>)·<var>A</var><sub>t+1</sub></div>
+      </div>
+
+      <figure class="figure" id="gae-figure">
+        <figcaption class="fig-head">
+          One env, one rollout of M = 8 steps. An episode ends after step 4, so step 5 starts a new one.
+          Press <strong>Step</strong> to run PPO's GAE loop, and click any column to see what its advantage is made of.
+        </figcaption>
+
+        <div class="gae-sliders">
+          <label>γ (gamma) <output id="g-out"></output>
+            <input id="g-in" type="range" min="0.8" max="1" step="0.01" value="0.99">
+          </label>
+          <label>λ (gae_lambda) <output id="l-out"></output>
+            <input id="l-in" type="range" min="0" max="1" step="0.05" value="0.95">
+          </label>
+        </div>
+
+        <div class="grid-scroll" tabindex="0" aria-label="GAE table, scrolls sideways on small screens">
+          <div id="gae-grid" class="gae-grid"></div>
+        </div>
+
+        <div class="controls">
+          <button id="gae-reset" type="button" aria-label="Reset">&#8634;</button>
+          <button id="gae-step" type="button" class="wide">Step &larr;</button>
+          <button id="gae-all" type="button" class="wide">Run all</button>
+          <span id="gae-ph" class="phase-label" aria-live="polite"></span>
+        </div>
+
+        <div id="gae-out" class="readout"></div>
+        <div id="gae-w" class="readout weights"></div>
+
+        <p class="code-head">CleanRL <code>ppo.py</code>: the line running now is highlighted</p>
+<pre class="code-panel" id="gae-code"><code><span class="ln" data-l="1">next_value = agent.get_value(next_obs)</span>
+<span class="ln" data-l="2">lastgaelam = 0</span>
+<span class="ln" data-l="3">for t in reversed(range(num_steps)):</span>
+<span class="ln" data-l="4">    if t == num_steps - 1:</span>
+<span class="ln" data-l="5">        nextnonterminal = 1.0 - next_done</span>
+<span class="ln" data-l="6">        nextvalues = next_value</span>
+<span class="ln" data-l="7">    else:</span>
+<span class="ln" data-l="8">        nextnonterminal = 1.0 - dones[t + 1]</span>
+<span class="ln" data-l="9">        nextvalues = values[t + 1]</span>
+<span class="ln" data-l="10">    delta = rewards[t] + gamma * nextvalues * nextnonterminal - values[t]</span>
+<span class="ln" data-l="11">    advantages[t] = lastgaelam = delta + gamma * gae_lambda * nextnonterminal * lastgaelam</span>
+<span class="ln" data-l="12">returns = advantages + values</span></code></pre>
+      </figure>
+
+      <h3>What to notice</h3>
+      <ul class="points">
+        <li>
+          <strong>λ slides between two extremes.</strong>
+          <ul>
+            <li><em>λ = 0</em> gives <var>A</var><sub>t</sub> = <var>δ</var><sub>t</sub>, a one-step TD estimate. It has
+              low variance, but it leans heavily on <var>V</var>, which may be wrong.</li>
+            <li><em>λ = 1</em> sums every δ to the end of the segment, which works out to the discounted rewards plus
+              the bootstrap, minus <var>V</var>(<var>s</var><sub>t</sub>). It depends less on <var>V</var>, but it's
+              noisier. PPO's default, <code>gae_lambda = 0.95</code>, sits near this end.</li>
+          </ul>
+        </li>
+        <li>
+          <strong>One backward pass is enough.</strong> Each <var>A</var><sub>t</sub> only needs
+          <var>δ</var><sub>t</sub> and <var>A</var><sub>t+1</sub>, so the loop runs <code>reversed</code> and carries
+          <code>lastgaelam</code> from one step to the next.
+        </li>
+        <li>
+          <strong>The edges come from section 1.</strong> At the last step, the loop uses <code>next_value</code> and
+          <code>next_done</code>, from the <a href="#vectorized-envs"><code>next_obs</code></a> carried across phases.
+          Inside the segment, <code>dones[t + 1]</code> cuts both the bootstrap and the chain. Step to t = 4 to see
+          the advantage stop at the episode boundary.
+        </li>
+        <li>
+          <strong>Returns come for free.</strong> <code>returns = advantages + values</code> are the targets for the
+          value function. This is the TD(λ) return.
+        </li>
+      </ul>
+
+      <aside class="takeaway">
+        <p class="takeaway-title">Put together</p>
+        <p>
+          GAE turns each step's surprise δ into an advantage by adding up the surprises that follow, discounted by
+          <var>γλ</var> and stopped at episode ends. PPO computes all of them in a single backward loop over the
+          rollout.
+        </p>
+      </aside>
+    </article>
   </main>
 
   <footer class="site-footer">
@@ -163,5 +266,6 @@
   </footer>
 
   <script src="assets/rollout-phases.js"></script>
+  <script src="assets/gae.js"></script>
 </body>
 </html>
